@@ -1,0 +1,229 @@
+Walking Skeleton:
+
+A timy implementation of the system that performs a small end-to-end function. It need not use the final architechture, but it should link together the main architechtural components. The architecture and functionality can then evolve in parallel
+
+------------------
+------------------
+Module 2:
+------------------
+------------------
+- start new webapi : dotnet new webapi -n <Proj_Name>
+
+- extensions: C# Omnisharp, C# Extensions, NuGet Package Manager
+
+- Hinding the bin / obj folders : File -> Preferences -> Settings -> search (exclude) -> Add Pattern -> **/bin
+
+- Turning Off HTTPs : 
+Properties -> launchSettings -> remove from DemoApp's applicationUrl (https://....)
+comment app.UseHttpsRedirection();
+
+* Controllers :
+Api Controllers contain end-points, these are the "Routes" the app is currently listening to.
+[Route("[controller]")] ~ [controller] is placeholder for the class name 
+
+
+* Program.cs :
+dotnet run -> looks for the Program class and runs "Main" method
+
+    public static void Main(string[] args)
+    {
+        CreateHostBuilder(args).Build().Run();
+    }
+    public static IHostBuilder CreateHostBuilder(string[] args) => 
+        Host.CreateDefaultBuilder(args)
+            .ConfigureWebHostDefalts(webBuilder => 
+            {
+                webBuilder.UseStartup<Startup>(); 
+                    //Startup : refers to Startup.cs, provides additional configs
+            });
+
+    NOTE:: CreateHostBuilder : Configures some defaults on app start and tells app to use "Kestral" WebServer (default web server by .NET to host our APIs), Configures logging, read from config files (appsettings.json)
+
+
+* Startup.cs :
+invoked by the Program.cs on app start to config defaults
+
+    public Startup(Iconfiguration configuration)
+    {
+        Configuration = configuration;
+            // Injecting configurations into Startup, allows to access settings inside config files (appsettings)
+    }   
+    public void ConfigureServices(IServiceCollection services)
+        // Dependency Injection container, ie when we create something that we want to be consumed by other part of the application, we add it as a service. Then Allows us to inject the service elsewhere         
+    {
+        services.AddControllers();
+    }
+    public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        // Config HTTP request pipeline, contains sequence of middleware components that are called one after another
+        // he order is critical for defining the security, performance, and functionality of the application.
+        // Middleware : used to interact with the request while it goes through the pipeline.
+    {
+        if(env.IsDevelopment){ app.UseDeveloperExceptionPage();}
+        app.UseRouting();
+        app.UseAuthorization();
+        app.UseEndPoints( endpoints => {endpoints.MapController();});
+    }
+
+
+
+-- As part of Walking Skeleton, we need to create DB and retrieve values using Controller methods.
+-- Creating DB using EF
+
+    // DB to be created using Code First/ Model First approach using Entity Framework
+    // Create the model class which is to be replicated to table using EF
+        - Create New Folder <Models> -> New class <Values> ,edit the properties for the class entity.
+        
+    // Tell EF about the entity, so it can scaffold the DB to create a table for the "Values" class.
+    // Create DataContext class
+        - Create New Folder <Data> -> New class <DataContext> ,need to derive from EF core class.
+            public class DataContext : DbContext{}
+
+    // From 2.2 to 3.0 lot of asseblies have being removed from "Microsoft.AspNetCore.App3.0"
+    - Ctrl + P -> Add NuGetPackage -> EntityFrameworkCore
+        public class DataContext : DbContext
+        {
+            public DataContext(DbContextOptions<DataContext> options) : base(options){}
+            // Providing DbContext options inside DataContext constr & include derived base & its options
+        }
+        public DbSet<Value> Values {get; set;}
+        // tells DataContext class about the entities <Value class>, Values will be table created
+
+        // Add DataContext to ConfigureServices to make it available as service for other parts 
+        // need to provide options like database provider and connection string.
+        - Add NuGet Packages -> EntityFrameworkCore.Sqlite ; Restore.
+            service.AddDbContext<DataContext>(x => x.UseSqlite("ConnectionString"))
+
+        // Add "ConnectionString" to appsettings
+            "ConnectionString" : {
+                "DefaultConnection" : "Data Source=DemoApp.db" 
+                // DemoApp.db : database name on creation
+            }
+
+        // Make use of configuration injected into Startup
+            service.AddDbContext<DataContext>(x => x.UseSqlite(Configuration.GetConnectionString("DefaultConnection")));
+
+    
+    // Create Migrations using EF tools: Code that scaffold our Db
+    // for dotnet 3, ef tools need to installed separately
+         dotnet tool install --global dotnet-ef
+    
+    // add Migrations, need to add NuGet Package -> EntityFrameworkCore.Design
+        dotnet ef migrations add InitailCreate
+
+    // Migrations folder created -> InitialCreate.cs
+        Up method : when migration is applied ; creates table "Values" (name in DbContext)
+        Down method : drop table 
+    
+    // Apply the migrations
+        dotnet ef database update 
+        // demoapp.db created ; can be accessed using DB Browser
+
+
+
+// retrieve data from the DB inside the values Controller
+
+    // Inject DataContext into ValuesController
+        private readonly DataContext context;   
+        public ValuesController(DataContext context)
+        {
+            this.context = context;
+        }
+        public IActionResult getValues()
+        {
+            var values = _context.Values.ToList();
+               // _context. (gives access to DbSets)
+            return Ok(values);
+        }
+
+
+    // Making code async
+        public async Task<IActionResult> getValues(int id)
+        {
+            var values = await _context.Values.FirstOrDefault(x => x.Id == id)
+            return Ok(values);
+        }
+
+
+
+---- Angular app ----
+npm install -g @angular/cli
+ng new DemoApp-SPA
+
+package.json : 
+		- dependencies : list  all the dependency packages for the project, 
+		-  scripts : gives access to commands used to run application
+
+src -> app -> modules.ts  : 
+	* very important, angular has to have at least one file that has 'NgModules' declaration
+	* NgModules' job is to bootstarp our angular component(s) [AppComponent]
+
+    AppComponent: Provides data for our view (.html)
+        * Angular component: 
+            - Decorator from core component, that has config properties like selector (used to show child component)
+            - A component must belong to an NgModule in order for it to be available to another component or application. To make it a member of an NgModule, list it in the declarations field of the NgModule metadata.
+
+main.ts :
+	information about module we bootstrap when application is run
+
+index.html:
+	single page application, we display angular components on html page using selector
+    * Behind the scene angular CLI uses Webpack (a bundler and minifier)and compiles all the code into JS and injects JS files into index.html
+        - we can't directly interact with Webpack, but angular.json allows us to window into that config
+
+
+-- Extensions: Angular Language Service, EsLint (/TsLint), Angular Snippets, Angular2 Switcher,  Angular Files (Scaffolding), Debugger for Chrome, Brackets
+
+
+---- 
+-- Making HTTP request in Angular
+
+* HttpClient Module : To get data from the API; comes inside angular common package. Import HttpClient module into NgModules.
+    app.module.ts -> imports -> (add) HttpClientModule
+
+* Use Dependency Injection in Angular to bring HTTP Client which can then make call to API, by adding HttpClient Service inside values constructor
+    export class ValueComponent implements OnInit{
+        constructor(private http : HttpClient){}
+    }
+
+* Angular Component has several life-cycle events where we can do something at a particular point.
+	* Constructor comes first, this is too early to do something but is place to inject a service required in component.
+	* ngOnInit() life-cycle method, we make call to API.
+	* http.get() method returns an Observable (: stream of data from API) of the response body as a Json obj.
+	* We need to subscribe to Observable to get data inside
+        ngOnInit() {
+            this.getValues();
+        }
+        values : any;
+        getValues(){
+            this.http.get('http://localhost:5000/api/values').subscribe(response => {
+                this.values = response;
+            }, error => { console.log(error);
+            });
+        }
+    
+    // use values inside value.component.html to display the records
+    <p *ngFor = "let value of values">
+        {{value.Id}}, {{value.Name}} </p>
+
+    // Call the value.component using app-value selector inside the app.component.html
+        <app-value> </app-value>
+
+	*  primary launch give CORS policy error:  // security feature
+		No Access-Control-Allow-Origin header at localhost:5000 (browser security feature to prohibit access data from unknown src)
+
+	* Adding CORS to Deal with the error:
+		- Send back a header from our API to the client that has a Cors policy, so client can trust the content sent from particular server	
+	    - Add services.AddCors() inside Startup.cs services, the ordering here is not important
+	    - Inside the Configure method (request Pipeline) ordering is extremely important. (Cors goes after routing)
+
+    // add bootstarp and font-awesome:
+        cd DemoApp-SPA -> npm install bootstarp font-awesome
+    // add global imports for bootstrap into style.class    
+
+
+-- Adding Git Version control
+
+- git init 
+- git commit -m "Initial Commit"
+// in the browser : github create new repository -> DemoApp
+- git remote add origin https://github.com/...../DemoApp.git
