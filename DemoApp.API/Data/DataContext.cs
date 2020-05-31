@@ -15,5 +15,7 @@ namespace DemoApp.API.Data
         // We need to let the application know about DataContext class.
         // => Need to make DataContext available as service to be consumed in other parts
         // => Add to ConfigureServices
+
+        public DbSet <User> Users{ get; set; }
     }
 }

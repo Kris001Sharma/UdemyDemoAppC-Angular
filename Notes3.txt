@@ -1,0 +1,145 @@
+ Module 3 : Securing the API
+
+ -How to store passwords in the Database
+ -Create the User Module
+ -Repository Pattern
+ -Creating the Authentication Controller
+ -Data Transfer Objects
+ -Token Authentication
+ -Authentication Middleware
+
+ --------------------
+  Storing passwords
+ --------------------
+- Hash only : same hash for same password text, easy to decrypt for weak password
+- Hash + salt : salt is randomly generated; same password many different Hash
+
+- Creating user Model
+    Models -> New class -> User.cs {Id, UserName, PassHash, PassSalt}
+    
+    // we need to tell EF about the new class
+    Datacontext.cs : (add) public DbSet<User> Users {get; set;}
+
+    // for change to reflect, we need to create new migration and apply to the database
+    -> DemoApp.API -> dotnet ef migrations add <AddedUserEntity>
+        dotnet ef database update (: new Users table created)
+
+-- Repository Patterns
+// Current Flow
+    Kestral -> Controller (valuesContr) --> DbContext (DbSet<Value> Values) -> EF -> DB
+
+// We are adding Repository Layer in between Controller and EF
+    
+    2 parts of the Repository Layer: 
+        (i) Interface : exposes methods that the Controller can utilize.
+                        GetUsers()
+                        GetUser(int Id)
+                        Login(User)
+            Controller doesn't need to know the implemetation, it needs to know what methods are available to perform functions using this Interface.
+        (i) Implemetation : in the repository itself we implement the methods exposed and write instrustions to EF.                                                                        
+                                        |
+    Controller => Repository Interface =|=> Repository Implemetation => Disk / Memory
+                                        |
+    Advantage Repository Patterns
+     - Behine the dotted lines, ie.implemetation can b totally changed without bothering Controller
+     - Minimize duplicate query logic. Eg. Multiple Controller with user interface, one implemetation
+     - Decouples application from persistence framework. Eg. EF can be changed later
+     - All Db queries at the same place
+
+
+
+-- create interface and repository
+
+    - Data -> create IAuthRepository.cs interface
+    - Data -> create AuthRepository.cs class  (implemetation)
+
+    // AuthRepository will query the DB using EF, so inject DataContext here
+    // Implemetation in AuthRepository for the 3 methods (refer AuthRepository.cs) //
+
+    // Next we need to add AuthRepository to Services in order to inject it in another part of the project
+    
+// new Controller where we use the auth repository, AuthController (refer AuthController) 
+    // Register     // Login
+    // ControllerBase - base class AspNetCore.Mvc Controller without view support; view-support will be Angular
+
+    // AuthController :
+        // We would get a single json serialized obj from user containing username, password
+        // we can't use 'User' object, so we need DTO (Data Transfer Objects)
+
+        // parameters recieved over HTTP, AspNetCore will automatically try to infer where the param are from?
+        // can hint using [FromBody], but [ApiController] does the job
+
+
+    // Add Debug Configuration
+        Run -> Add New Configuration -> launch.json(automatically) -> .NET Attach to local..
+            - gives a Configuration .NET Core Attach
+            - allows to select the process that one wishes to attach debugger to 
+    // Same debug setup is automated in dotnet 3.0 and above : F5 (.NET Core Launch(web))
+
+
+    // Validation 
+        // inside DTO as passHash and passSalt can't be validated
+        // pass Data Annotations above the mandate entites
+        - [Required]
+            [StringLength(MaxLength = 8, MinLength = 4, ErrorMessage = "error")]
+            // throws BadRequest automatically. => Because of [ApiController] =without=> Internal Server Error
+            // debug at the breakpoint : username = NULL
+            => [ApiController] also handles the infer [FromBody], without this the controller 
+
+    
+    
+// Token Authentication : Login the user and keep him logged in
+
+- JWTs : JSON Web Tokens, industry standards
+    - Self contained, have credentials, claims, other info
+
+- JWT Structure : text file of 3 parts
+    - Header {algo used to encrypt token, type JWT here}
+    - Payload {info inside token like identifier, username}
+    NOTE :: Things in Header and Payload can be decoded by anyone
+    - Secret / Signature {encodes and hash the header and payload using SHA256}
+
+// Token Authentication process
+
+                ------ Sends UserName and password ------> 
+    ______                                                      ______
+    CLIENT      <----- Validates and sends back JWT ------      SERVER
+        JWT saved locally
+                ------ Sends JWT for future requests ----->
+
+                <----Validates JWT and sends back response ---
+
+
+// Add some packages for 3.0
+    - Microsoft.IdentityModel.Tokens
+    - System.IdentityModel.Tokens.JWT
+
+
+// Authorization 
+    -Microsoft.AspNetCore.Authentication.JWTBearer
+    
+    // We want users to access the Login and Register method anonymously, not explicitly.
+        So its not useful to make users Authorize against these methods
+    
+    - (add) [Authorize] before [ApiController] => everything inside the controller should be authorize req
+    // Authorization Schema is specified in Startup by adding it as service and then including inside pipeline 
+
+    
+    // appsettings.json contains sentsitive information, secret key
+        thus we must not add it to github publically, to do so we remove the file from staged changes
+        - add to .gitignore -> appsettings.json
+        - (run) git rm appsettings.json --cached (removes from git but keeps locally)
+
+    // Other options for safe storage of secrets
+        // Environment variable in Production
+        // dotnet user-secrets  in Development
+    
+    
+
+
+
+
+
+
+
+ 

@@ -221,9 +221,12 @@ index.html:
     // add global imports for bootstrap into style.class    
 
 
+
 -- Adding Git Version control
 
 - git init 
 - git commit -m "Initial Commit"
 // in the browser : github create new repository -> DemoApp
 - git remote add origin https://github.com/...../DemoApp.git
+- git push -u origin master
+

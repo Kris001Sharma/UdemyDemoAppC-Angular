@@ -3,11 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DemoApp.API.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace DemoApp.API.Controllers
 {
+    // [Authorize] => everything inside the controller should be authorize request
+    [Authorize]
+    // will authorize the user, But need to add the Authorization Scheme on how to Authorize the user?
+     
     [Route("api/[controller]")]
     // Equivalent to ~ http://localhost:5000/api/Values
     // [controller] is a place holder for the class name ie. Values 
@@ -48,7 +53,7 @@ namespace DemoApp.API.Controllers
             return Ok(values);
         }
 
-        // GET api/values/5
+        [AllowAnonymous]
         [HttpGet("{id}")]
         public async Task<IActionResult> Get(int id)
         {
